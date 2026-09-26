@@ -86,6 +86,16 @@ jobs:
           grep -q "$API_HASH" snap/snapcraft.yaml
           echo "Credentials injected into snapcraft.yaml."
 
+      - name: Ensure a version tag exists.
+        run: |
+          set -e
+          if ! git describe --tags >/dev/null 2>&1; then
+            version=$(sed -n 's/^AppVersionStr[[:space:]]\+\(.*\)/\1/p' Telegram/build/version)
+            git tag "v$version"
+            echo "Fork has no tags; created local tag v$version for snapcraft."
+          fi
+          git describe --tags
+
       - name: Telegram Desktop snap build.
         run: sudo -u $USER snap run snapcraft --verbosity=debug
 
