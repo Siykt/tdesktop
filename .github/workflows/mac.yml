@@ -1,6 +1,7 @@
 name: MacOS.
 
 on:
+  workflow_dispatch:
   push:
     # Pushes to the canary branches run only canary.yml, see there.
     branches-ignore:
