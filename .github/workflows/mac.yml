@@ -110,11 +110,12 @@ jobs:
             echo Define from matrix: $DEFINE
             echo "ARTIFACT_NAME=Telegram ${{ matrix.defines }}" >> $GITHUB_ENV
           else
-            echo "ARTIFACT_NAME=Telegram" >> $GITHUB_ENV
+            echo "ARTIFACT_NAME=Telegram arm64" >> $GITHUB_ENV
           fi
 
           ./configure.sh \
           -D CMAKE_CONFIGURATION_TYPES=Release \
+          -D CMAKE_OSX_ARCHITECTURES=arm64 \
           -D CMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO \
           -D TDESKTOP_API_ID=${{ secrets.TDESKTOP_API_ID }} \
           -D TDESKTOP_API_HASH=${{ secrets.TDESKTOP_API_HASH }} \
