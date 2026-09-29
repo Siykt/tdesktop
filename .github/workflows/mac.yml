@@ -132,6 +132,13 @@ jobs:
           mkdir artifact
           mv Telegram.app artifact/
           mv Updater artifact/
+      - name: Sign ad-hoc.
+        if: env.UPLOAD_ARTIFACT == 'true'
+        run: |
+          cd $REPO_NAME/out/Release/artifact
+          # Apple Silicon refuses to launch a bundle without a signature.
+          codesign --force --deep --sign - Telegram.app
+          codesign --verify --deep --verbose=2 Telegram.app
       - uses: actions/upload-artifact@v7
         if: env.UPLOAD_ARTIFACT == 'true'
         name: Upload artifact.
