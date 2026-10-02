@@ -10,6 +10,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "settings/settings_common_session.h"
 
 #include "api/api_global_privacy.h"
+#include "automation/automation_box.h"
 #include "apiwrap.h"
 #include "base/call_delayed.h"
 #include "base/platform/base_platform_custom_app_icon.h"
@@ -1331,6 +1332,23 @@ private:
 
 };
 
+void BuildAutomationSection(SectionBuilder &builder) {
+	const auto controller = builder.controller();
+	builder.addSkip();
+	builder.addDivider();
+	builder.addSkip();
+
+	builder.addButton({
+		.id = u"advanced/automation"_q,
+		.title = rpl::single(u"自动化工具"_q),
+		.icon = { &st::menuIconBot },
+		.onClick = [=] {
+			controller->show(Box(Automation::AutomationBox, controller));
+		},
+		.keywords = { u"automation"_q, u"mcp"_q, u"bot"_q },
+	});
+}
+
 const auto kMeta = BuildHelper({
 	.id = Advanced::Id(),
 	.parentId = MainId(),
@@ -1356,6 +1374,7 @@ const auto kMeta = BuildHelper({
 		BuildUpdateSection(builder, false);
 	}
 	BuildExportSection(builder);
+	BuildAutomationSection(builder);
 });
 
 const SectionBuildMethod kAdvancedSection = kMeta.build;

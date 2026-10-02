@@ -109,6 +109,11 @@ nice_target_sources(Telegram ${src_loc}
 PRIVATE
     ${style_files}
 
+    automation/automation_api.cpp
+    automation/automation_api.h
+    automation/automation_box.cpp
+    automation/automation_box.h
+
     api/api_attached_stickers.cpp
     api/api_attached_stickers.h
     api/api_authorizations.cpp

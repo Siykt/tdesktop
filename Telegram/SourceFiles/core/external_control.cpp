@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "core/external_control.h"
 
+#include "automation/automation_api.h"
 #include "core/application.h"
 #include "core/core_settings.h"
 #include "boxes/connection_box.h"
@@ -44,10 +45,6 @@ struct WindowEntry {
 	not_null<Window::Controller*> controller;
 	QWidget *window = nullptr;
 };
-
-[[nodiscard]] bool AutomationEnabled() {
-	return Core::App().settings().readPref<bool>(kAutomationKey, false);
-}
 
 void FillAutomationConfirmBox(
 		not_null<Ui::GenericBox*> box,
@@ -89,48 +86,6 @@ void FillAutomationConfirmBox(
 		button->setClickedCallback(entry.callback);
 	}
 	box->setStyle(st::localAutomationBox);
-}
-
-void RequestEnableAutomation() {
-	const auto window = Core::App().activePrimaryWindow();
-	if (!window) {
-		return;
-	}
-	static QPointer<Ui::GenericBox> current;
-	if (current) {
-		return;
-	}
-	const auto show = window->uiShow();
-
-	const auto second = [=](not_null<Ui::GenericBox*> box) {
-		current = box.get();
-		FillAutomationConfirmBox(
-			box,
-			u"Just to be sure — confirm once more to enable local "
-			u"automation."_q,
-			[=] {
-				Core::App().settings().writePref<bool>(
-					kAutomationKey,
-					true);
-				box->closeBox();
-			});
-	};
-	const auto first = [=](not_null<Ui::GenericBox*> box) {
-		current = box.get();
-		FillAutomationConfirmBox(
-			box,
-			u"An external program is trying to control "
-			u"Telegram Desktop over the local socket — read open "
-			u"windows and activate them, change the proxy, the theme "
-			u"and lock the app.\n\nEnable local "
-			u"automation? While it is on, anything running under your "
-			u"user account can control the app."_q,
-			[=] {
-				box->closeBox();
-				show->showBox(Box(second));
-			});
-	};
-	show->show(Box(first));
 }
 
 [[nodiscard]] QByteArray Pack(QJsonObject object) {
@@ -587,6 +542,52 @@ void RestoreTheme(const Window::Theme::Object &object) {
 
 } // namespace
 
+bool AutomationEnabled() {
+	return Core::App().settings().readPref<bool>(kAutomationKey, false);
+}
+
+void RequestEnableAutomation() {
+	const auto window = Core::App().activePrimaryWindow();
+	if (!window) {
+		return;
+	}
+	static QPointer<Ui::GenericBox> current;
+	if (current) {
+		return;
+	}
+	const auto show = window->uiShow();
+
+	const auto second = [=](not_null<Ui::GenericBox*> box) {
+		current = box.get();
+		FillAutomationConfirmBox(
+			box,
+			u"Just to be sure — confirm once more to enable local "
+			u"automation."_q,
+			[=] {
+				Core::App().settings().writePref<bool>(
+					kAutomationKey,
+					true);
+				box->closeBox();
+			});
+	};
+	const auto first = [=](not_null<Ui::GenericBox*> box) {
+		current = box.get();
+		FillAutomationConfirmBox(
+			box,
+			u"An external program is trying to control "
+			u"Telegram Desktop over the local socket — read open "
+			u"windows and activate them, change the proxy, the theme "
+			u"and lock the app.\n\nEnable local "
+			u"automation? While it is on, anything running under your "
+			u"user account can control the app."_q,
+			[=] {
+				box->closeBox();
+				show->showBox(Box(second));
+			});
+	};
+	show->show(Box(first));
+}
+
 QByteArray HandleExternalControl(const QString &command) {
 	if (!IsAppLaunched()) {
 		return Error(u"application is not launched"_q);
@@ -594,6 +595,8 @@ QByteArray HandleExternalControl(const QString &command) {
 		RequestEnableAutomation();
 		return Error(u"local automation is disabled — confirm in the "
 			u"Telegram window to enable"_q);
+	} else if (command.startsWith(u"tg:"_q)) {
+		return Automation::HandleRequest(command.mid(3).toLatin1());
 	} else if (command == u"automation-off"_q) { // TEMP test helper.
 		Core::App().settings().writePref<bool>(kAutomationKey, false);
 		auto object = QJsonObject();

@@ -11,4 +11,7 @@ namespace Core {
 
 [[nodiscard]] QByteArray HandleExternalControl(const QString &command);
 
+[[nodiscard]] bool AutomationEnabled();
+void RequestEnableAutomation();
+
 } // namespace Core
