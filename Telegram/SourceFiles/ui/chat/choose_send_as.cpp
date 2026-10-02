@@ -20,7 +20,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "main/main_session.h"
 #include "main/session/send_as_peers.h"
 #include "lang/lang_keys.h"
-#include "settings/sections/settings_premium.h"
 #include "styles/style_calls.h"
 #include "styles/style_chat_helpers.h"
 
@@ -230,26 +229,6 @@ void SetupSendAsButton(
 			return;
 		}
 		const auto done = [=](not_null<PeerData*> sendAs) {
-			const auto i = ranges::find(
-				list,
-				sendAs,
-				&Main::SendAsPeer::peer);
-			if (i != end(list)
-				&& i->premiumRequired
-				&& !sendAs->session().premium()) {
-				Settings::ShowPremiumPromoToast(
-					show,
-					tr::lng_send_as_premium_required(
-						tr::now,
-						lt_link,
-						tr::link(
-							tr::bold(
-								tr::lng_send_as_premium_required_link(
-									tr::now))),
-						tr::marked),
-					u"send_as"_q);
-				return false;
-			}
 			session->sendAsPeers().saveChosen(peer, sendAs);
 			return true;
 		};
