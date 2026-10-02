@@ -242,7 +242,7 @@ void ResolveUsernameAndSend(
 		const QJsonObject &params) {
 	const auto limit = std::clamp(params.value(u"limit"_q).toInt(50), 1, 500);
 	auto chats = QJsonArray();
-	for (const auto row : *session->data().chatsList()->indexed()) {
+	for (const auto &row : *session->data().chatsList()->indexed()) {
 		const auto history = row->history();
 		if (!history) {
 			continue;

@@ -57,8 +57,9 @@ constexpr auto kBridgeCommand = "node <repo>/tools/tdesktop-mcp/index.js";
 		+ QString::number(result.value(u"created"_q).toInt())
 		+ u"/"_q
 		+ QString::number(result.value(u"total"_q).toInt());
-	for (const auto &bot : result.value(u"bots"_q).toArray()) {
-		const auto object = bot.toObject();
+	const auto bots = result.value(u"bots"_q).toArray();
+	for (auto i = 0; i != int(bots.size()); ++i) {
+		const auto object = bots.at(i).toObject();
 		text += u"\n@"_q
 			+ object.value(u"username"_q).toString()
 			+ u"  "_q
