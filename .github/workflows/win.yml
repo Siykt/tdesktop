@@ -106,6 +106,64 @@ jobs:
           git config --global user.email "you@example.com"
           git config --global user.name "Sample"
 
+      # The image carries toolchains and SDKs the build never touches, and the
+      # Debug build needs their room more.
+      - name: Free up runner disk space.
+        shell: pwsh
+        run: |
+          function Show-Free {
+            Get-PSDrive C,D |
+              Select-Object Name,
+                @{n='FreeGB';e={[math]::Round($_.Free / 1GB, 1)}} |
+              Format-Table
+          }
+          Show-Free
+
+          $paths = @(
+            'C:\Program Files\Android',
+            'C:\Android',
+            'C:\Users\runneradmin\AppData\Local\Android',
+            'C:\Program Files\LLVM',
+            'C:\Program Files\dotnet',
+            'C:\Users\runneradmin\.dotnet',
+            'C:\Program Files\Microsoft SQL Server',
+            'C:\Program Files\MySQL',
+            'C:\Program Files\MongoDB',
+            'C:\Program Files\R',
+            'C:\tools',
+            'C:\Windows\SoftwareDistribution\Download'
+          )
+          $globs = @(
+            'C:\hostedtoolcache\windows\Java_*',
+            'C:\hostedtoolcache\windows\Ruby',
+            'C:\hostedtoolcache\windows\Go',
+            'C:\hostedtoolcache\windows\PyPy',
+            'C:\hostedtoolcache\windows\Kotlin',
+            'C:\hostedtoolcache\windows\Python\3.13*',
+            'C:\hostedtoolcache\windows\Python\3.14*'
+          )
+
+          $targets = @()
+          foreach ($path in $paths) {
+            if (Test-Path $path) {
+              $targets += Get-Item $path -Force
+            }
+          }
+          foreach ($glob in $globs) {
+            $targets += Get-Item $glob -Force -ErrorAction SilentlyContinue
+          }
+
+          foreach ($target in $targets) {
+            $size = (Get-ChildItem $target.FullName -Recurse -File -Force `
+              -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum
+            '{0,-58} {1,9:N1} GB' -f $target.FullName, ($size / 1GB)
+          }
+          foreach ($target in $targets) {
+            Remove-Item $target.FullName -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
+          Show-Free
+
       - name: Install VS 2026 Build Tools.
         if: matrix.arch == 'arm64'
         shell: pwsh
@@ -255,10 +313,12 @@ jobs:
         shell: cmd
         run: |
           fsutil volume diskfree C:
+          fsutil volume diskfree D:
           if exist "%TBUILD%\ThirdParty\rust" rmdir /Q /S "%TBUILD%\ThirdParty\rust"
           if exist "%TBUILD%\Libraries\win64\wallet-engine" rmdir /Q /S "%TBUILD%\Libraries\win64\wallet-engine"
           if exist "%TBUILD%\Libraries\win64\tlottie" rmdir /Q /S "%TBUILD%\Libraries\win64\tlottie"
           fsutil volume diskfree C:
+          fsutil volume diskfree D:
 
       - name: Telegram Desktop build.
         if: env.ONLY_CACHE == 'false'
