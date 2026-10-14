@@ -113,6 +113,16 @@ jobs:
             ThirdParty
           key: ${{ steps.cache-libs.outputs.cache-primary-key }}
 
+      # prepare.py is done with Rust; the app build needs the room.
+      - name: Free up more disk space.
+        if: env.ONLY_CACHE == 'false'
+        run: |
+          df -h
+          rm -rf ThirdParty/rust
+          rm -rf Libraries/tlottie Libraries/wallet-engine
+          rm -rf Libraries/local/tlottie Libraries/local/wallet-engine
+          df -h
+
       - name: Telegram Desktop build.
         if: env.ONLY_CACHE == 'false'
         run: |

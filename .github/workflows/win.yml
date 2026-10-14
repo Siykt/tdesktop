@@ -249,6 +249,17 @@ jobs:
             ${{ env.LibrariesPath }}\cache_keys\[qQ]t[_-]*
           key: ${{ steps.cache-qt.outputs.cache-primary-key }}
 
+      # prepare.py is done with Rust; the Debug build needs the room.
+      - name: Free up even more disk space.
+        if: env.ONLY_CACHE == 'false'
+        shell: cmd
+        run: |
+          fsutil volume diskfree C:
+          if exist "%TBUILD%\ThirdParty\rust" rmdir /Q /S "%TBUILD%\ThirdParty\rust"
+          if exist "%TBUILD%\Libraries\win64\wallet-engine" rmdir /Q /S "%TBUILD%\Libraries\win64\wallet-engine"
+          if exist "%TBUILD%\Libraries\win64\tlottie" rmdir /Q /S "%TBUILD%\Libraries\win64\tlottie"
+          fsutil volume diskfree C:
+
       - name: Telegram Desktop build.
         if: env.ONLY_CACHE == 'false'
         run: |
