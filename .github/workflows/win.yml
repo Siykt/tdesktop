@@ -130,7 +130,6 @@ jobs:
             'C:\Program Files\MySQL',
             'C:\Program Files\MongoDB',
             'C:\Program Files\R',
-            'C:\tools',
             'C:\Windows\SoftwareDistribution\Download'
           )
           $globs = @(
@@ -138,9 +137,7 @@ jobs:
             'C:\hostedtoolcache\windows\Ruby',
             'C:\hostedtoolcache\windows\Go',
             'C:\hostedtoolcache\windows\PyPy',
-            'C:\hostedtoolcache\windows\Kotlin',
-            'C:\hostedtoolcache\windows\Python\3.13*',
-            'C:\hostedtoolcache\windows\Python\3.14*'
+            'C:\hostedtoolcache\windows\Kotlin'
           )
 
           $targets = @()
