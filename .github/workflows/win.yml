@@ -112,7 +112,7 @@ jobs:
         shell: pwsh
         run: |
           function Show-Free {
-            Get-PSDrive C,D |
+            Get-PSDrive -PSProvider FileSystem |
               Select-Object Name,
                 @{n='FreeGB';e={[math]::Round($_.Free / 1GB, 1)}} |
               Format-Table
@@ -313,12 +313,12 @@ jobs:
         shell: cmd
         run: |
           fsutil volume diskfree C:
-          fsutil volume diskfree D:
+          if exist D:\ fsutil volume diskfree D:
           if exist "%TBUILD%\ThirdParty\rust" rmdir /Q /S "%TBUILD%\ThirdParty\rust"
           if exist "%TBUILD%\Libraries\win64\wallet-engine" rmdir /Q /S "%TBUILD%\Libraries\win64\wallet-engine"
           if exist "%TBUILD%\Libraries\win64\tlottie" rmdir /Q /S "%TBUILD%\Libraries\win64\tlottie"
           fsutil volume diskfree C:
-          fsutil volume diskfree D:
+          if exist D:\ fsutil volume diskfree D:
 
       - name: Telegram Desktop build.
         if: env.ONLY_CACHE == 'false'
