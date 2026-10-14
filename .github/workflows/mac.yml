@@ -96,8 +96,22 @@ jobs:
           # Release build links the release Qt and Crashpad libraries.
           ./$REPO_NAME/Telegram/build/prepare/mac.sh silent
 
+      # local/src/wallet_engine holds the UniFFI-generated wallet_engine.cpp
+      # that cmake/external/wallet_engine compiles into the app, and
+      # tlottie/wallet-engine are the sources the stage compiles.
       - name: Free up some disk space.
-        run: find Libraries '(' '(' ! '(' -name '*.a' -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.cmake' -o -name '*.pc' -o -path '*/include/*' -o -path '*/objects-*' -o -path '*/cache_keys/*' -o -path '*/patches/*' -o -perm +111 ')' -type f ')' -o -empty ')' -delete
+        run: find Libraries '(' '(' ! '(' -name '*.a' -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.cmake' -o -name '*.pc' -o -name 'macos_toolchain.json' -o -path '*/include/*' -o -path '*/objects-*' -o -path '*/cache_keys/*' -o -path '*/patches/*' -o -path '*/src/wallet_engine/*' -o '(' '(' -path '*/tlottie/*' -o -path '*/wallet-engine/*' ')' ! -path '*/target/*' ')' -o -perm +111 ')' -type f ')' -o '(' -empty ! -path '*/tlottie/*' ! -path '*/wallet-engine/*' ')' ')' -delete
+
+      # The combined cache action saves in a post step gated on success, so a
+      # later build failure would throw the whole library build away.
+      - name: Save Libraries cache.
+        if: steps.cache-libs.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            Libraries
+            ThirdParty
+          key: ${{ steps.cache-libs.outputs.cache-primary-key }}
 
       - name: Telegram Desktop build.
         if: env.ONLY_CACHE == 'false'
