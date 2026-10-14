@@ -359,6 +359,13 @@ MainWidget::MainWidget(
 		updateControlsGeometry();
 	}, lifetime());
 
+	Core::App().settings().thirdSectionInfoEnabledValue(
+	) | rpl::skip(1) | rpl::on_next([=] {
+		crl::on_main(this, [=] {
+			updateColumnLayout();
+		});
+	}, lifetime());
+
 	session().changes().historyUpdates(
 		Data::HistoryUpdate::Flag::MessageSent
 	) | rpl::on_next([=](const Data::HistoryUpdate &update) {
@@ -384,7 +391,6 @@ MainWidget::MainWidget(
 		controller->hideLayer();
 	}, lifetime());
 
-	// MSVC BUG + REGRESSION rpl::mappers::tuple :(
 	using namespace rpl::mappers;
 	_controller->activeChatValue(
 	) | rpl::map([](Dialogs::Key key) {
@@ -396,14 +402,9 @@ MainWidget::MainWidget(
 				Data::TabbedPanelSendRestrictions())
 			: peer
 			? Data::CanSendAnyOfValue(
-
 				peer, Data::TabbedPanelSendRestrictions())
 			: rpl::single(false);
-		return std::move(
-			canWrite
-		) | rpl::map([=](bool can) {
-			return std::make_tuple(key, can);
-		});
+		return std::move(canWrite) | rpl::map(tuple(key, _1));
 	}) | rpl::flatten_latest(
 	) | rpl::on_next([this](Dialogs::Key key, bool canWrite) {
 		updateThirdColumnToCurrentChat(key, canWrite);

@@ -20,6 +20,13 @@ after this performer returns.
 
 Read these files completely before phase work:
 
+- [Phase effort](../../shared/phase-effort.md) for effort selection and host
+  mappings before assigning phase workers;
+- On Codex, [child completion and recovery](../../shared/codex-delegation.md)
+  for result-driven waits and recovery of stopped agents;
+- On Claude Code, unless the invocation opted out of Codex reviews,
+  [Codex CLI leaves](../../shared/codex-cli-leaves.md) for the review and
+  assessment phases;
 - `references/pipeline.md` for the authoritative end-to-end runner contract;
 - `references/phase-prompts.md` for exact leaf prompts and retry rules;
 - `.agents/shared/test-loop.md` for the implementation/test state machine;
@@ -31,6 +38,12 @@ Read these files completely before phase work:
 The pipeline reference adapts conflicting generic test-loop mechanics for the
 external AI worktree and exact-path safety. Its named adapter wins at those
 points; retain every other test-loop rule.
+
+A task whose `task.md` has a `## Code health` section with class Q0, Q1 or
+Q2 runs the [mechanical lane](references/mechanical-lane.md) instead. For it,
+read that file and, from `pipeline.md`, the Contract, Preflight, Telegram
+commits and Final AI state sections; skip the test-loop and Computer Use
+references.
 
 ## Resolve the workspace and task
 
@@ -118,7 +131,7 @@ and is approved produces:
 1. one or more tested source implementation-attempt commits, each with an
    exact one-line subject using the pipeline's conditional `[ai] ` prefix,
    blank line, and `Task: <full-task-id>`;
-2. local tracked phase artifacts and progress in the AI slot worktree, without
+2. local tracked phase artifacts in the AI slot worktree, without
    phase commits;
 3. one canonical `Approve <full-task-id>` commit containing all final AI
    artifacts and state.

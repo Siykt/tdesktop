@@ -73,6 +73,7 @@ enum class Command {
 	ComposeAiApplyInPlace,
 	ShowRichEditor,
 	ToggleWebPagePreview,
+	StashMessage,
 
 	RecordVoice,
 	RecordRound,
@@ -143,6 +144,10 @@ bool Launch(Command command);
 bool HandleEvent(not_null<QObject*> object, not_null<QShortcutEvent*> event);
 
 bool HandlePossibleChatSwitch(not_null<QKeyEvent*> event);
+
+[[nodiscard]] bool MatchesCommand(
+	not_null<QKeyEvent*> event,
+	Command command);
 
 struct ChatSwitchRequest {
 	Qt::Key action = Qt::Key_Tab; // Key_Tab, Key_Backtab or Key_Escape.

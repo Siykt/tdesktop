@@ -20,6 +20,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "calls/calls_instance.h"
 #include "core/application.h"
 #include "core/click_handler_types.h"
+#include "core/core_screenshot_protection.h"
 #include "core/file_utilities.h"
 #include "core/mime_type.h"
 #include "core/ui_integration.h"
@@ -137,24 +138,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 namespace Media {
 namespace View {
 namespace {
-
-struct RecognitionId {
-	uint64 sessionUniqueId = 0;
-	PhotoId photoId = 0;
-	DocumentId documentId = 0;
-
-	friend inline auto operator<=>(RecognitionId, RecognitionId) = default;
-};
-
-using RecognitionResult = Platform::TextRecognition::Result;
-using RecognitionCacheMap = base::flat_map<RecognitionId, RecognitionResult>;
-
-[[nodiscard]] RecognitionCacheMap *RecognitionCache() {
-	static auto cache = Platform::TextRecognition::IsAvailable()
-		? std::make_unique<base::flat_map<RecognitionId, RecognitionResult>>()
-		: nullptr;
-	return cache.get();
-}
 
 [[nodiscard]] int LayoutIndependentKey(not_null<QKeyEvent*> e) {
 	if constexpr (Platform::IsWindows()) {
@@ -927,8 +910,10 @@ OverlayWidget::OverlayWidget()
 	// and that is a path where Qt recreates the native window, dropping
 	// everything set on the old one. Reapply on every handle change.
 	_window->winIdValue(
-	) | rpl::on_next([=] {
-		Platform::SetWindowScreenshotProtection(_window, _screenshotProtected);
+	) | rpl::on_next([=](WId) {
+		Platform::SetWindowScreenshotProtection(
+			_window,
+			_screenshotProtected);
 	}, lifetime());
 
 	_window->screenValue(
@@ -1721,16 +1706,6 @@ void OverlayWidget::updateControls() {
 			_docSaveAs->hide();
 			_docCancel->moveToLeft(_docRect.x() + 2 * st::mediaviewFilePadding + st::mediaviewFileIconSize, _docRect.y() + st::mediaviewFilePadding + st::mediaviewFileLinksTop);
 			_docCancel->show();
-		} else if (_message && _message->forbidsSaving()) {
-			_docDownload->hide();
-			_docSaveAs->hide();
-			_docCancel->hide();
-			if (!_documentMedia->loaded(true)) {
-				DocumentSaveClickHandler::Save(
-					fileOrigin(),
-					_document,
-					DocumentSaveClickHandler::Mode::ToCacheOrFile);
-			}
 		} else {
 			if (_documentMedia->loaded(true)) {
 				_docDownload->hide();
@@ -5343,6 +5318,7 @@ void OverlayWidget::initThemePreview() {
 	current.backgroundId = Background()->id();
 	current.backgroundImage = Background()->createCurrentImage();
 	current.backgroundTiled = Background()->tile();
+	current.previewBg = st::themePreviewBg->c;
 
 	const auto &cloudList = _document->session().data().cloudThemes().list();
 	const auto i = ranges::find(
@@ -6083,7 +6059,9 @@ bool OverlayWidget::contentNeedsScreenshotProtection() const {
 
 void OverlayWidget::refreshScreenshotProtection() {
 	_screenshotProtected = contentNeedsScreenshotProtection();
-	Platform::SetWindowScreenshotProtection(_window, _screenshotProtected);
+	Platform::SetWindowScreenshotProtection(
+		_window,
+		_screenshotProtected);
 }
 
 void OverlayWidget::refreshSystemMediaControls() {
@@ -7398,6 +7376,7 @@ void OverlayWidget::handleKeyPress(not_null<QKeyEvent*> e) {
 		} else {
 			close();
 		}
+	// Ctrl + S is claimed against other shortcuts in eventFilter().
 	} else if (e == QKeySequence::Save || e == QKeySequence::SaveAs) {
 		saveAs();
 	} else if (key == Qt::Key_Copy || (key == Qt::Key_C && ctrl)) {
@@ -8731,6 +8710,9 @@ bool OverlayWidget::filterApplicationEvent(
 			return true;
 		} else if (key == Qt::Key_0 && ctrl) {
 			zoomReset();
+			return true;
+		} else if (event == QKeySequence::SaveAs
+			|| event == QKeySequence::Save) {
 			return true;
 		}
 		return false;
