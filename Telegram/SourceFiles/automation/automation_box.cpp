@@ -211,6 +211,9 @@ void AutomationBox(
 	const auto exportButton = AddAction(
 		container,
 		tr::lng_automation_export_action());
+	const auto copyButton = AddAction(
+		container,
+		tr::lng_automation_copy());
 	exportButton->setClickedCallback([=] {
 		const auto response = SyncRequest(u"exportSession"_q);
 		const auto result = response.value(u"result"_q).toObject();
@@ -229,9 +232,18 @@ void AutomationBox(
 			+ u":"_q
 			+ QString::number(result.value(u"port"_q).toInt());
 		exported->setText(text);
-		QGuiApplication::clipboard()->setText(telethon);
 		controller->showToast(
-			tr::lng_automation_export_copied(tr::now));
+			tr::lng_automation_export_ready(tr::now));
+	});
+	copyButton->setClickedCallback([=] {
+		for (const auto &line : exported->getLastText().split(QChar('\n'))) {
+			if (line.startsWith(u"Telethon: "_q)) {
+				QGuiApplication::clipboard()->setText(line.mid(10));
+				controller->showToast(
+					tr::lng_automation_export_copied(tr::now));
+				return;
+			}
+		}
 	});
 	Ui::AddSkip(container);
 

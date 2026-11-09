@@ -9228,6 +9228,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "lng_automation_export_about" = "导出后可以把账号授权交给外部自动化程序接管，请当作密钥保管。";
 "lng_automation_export_action" = "导出 Session String";
 "lng_automation_export_copied" = "Session String 已复制";
+"lng_automation_export_ready" = "Session String 已生成，确认无误后点复制";
+"lng_automation_copy" = "复制";
 "lng_automation_event_message" = "新消息";
 "lng_automation_event_join_request" = "入群申请";
 "lng_automation_close" = "关闭";
