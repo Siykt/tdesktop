@@ -329,7 +329,7 @@ jobs:
           %TDESKTOP_BUILD_API% ^
           -D CMAKE_CONFIGURATION_TYPES=Debug ^
           -D CMAKE_MSVC_DEBUG_INFORMATION_FORMAT= ^
-          -D DESKTOP_APP_DISABLE_AUTOUPDATE=OFF ^
+          -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON ^
           -D DESKTOP_APP_DISABLE_CRASH_REPORTS=OFF ^
           %TDESKTOP_BUILD_DEFINE%
 
@@ -341,7 +341,6 @@ jobs:
           set OUT=%TBUILD%\%REPO_NAME%\out\Debug
           mkdir artifact
           move %OUT%\Telegram.exe artifact/
-          move %OUT%\Updater.exe artifact/
       - uses: actions/upload-artifact@v7
         name: Upload artifact.
         if: (env.UPLOAD_ARTIFACT == 'true') || (github.ref == 'refs/heads/nightly')

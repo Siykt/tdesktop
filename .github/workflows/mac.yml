@@ -143,7 +143,7 @@ jobs:
           -D CMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO \
           -D TDESKTOP_API_ID=${{ secrets.TDESKTOP_API_ID }} \
           -D TDESKTOP_API_HASH=${{ secrets.TDESKTOP_API_HASH }} \
-          -D DESKTOP_APP_DISABLE_AUTOUPDATE=OFF \
+          -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON \
           -D DESKTOP_APP_DISABLE_CRASH_REPORTS=OFF \
           $DEFINE
 
@@ -155,7 +155,6 @@ jobs:
           cd $REPO_NAME/out/Release
           mkdir artifact
           mv Telegram.app artifact/
-          mv Updater artifact/
       - name: Sign ad-hoc.
         if: env.UPLOAD_ARTIFACT == 'true'
         run: |

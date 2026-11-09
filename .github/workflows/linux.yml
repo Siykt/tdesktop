@@ -158,7 +158,7 @@ jobs:
           -D CMAKE_COMPILE_WARNING_AS_ERROR=ON \
           -D TDESKTOP_API_ID=${{ secrets.TDESKTOP_API_ID }} \
           -D TDESKTOP_API_HASH=${{ secrets.TDESKTOP_API_HASH }} \
-          -D DESKTOP_APP_DISABLE_AUTOUPDATE=OFF \
+          -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON \
           -D DESKTOP_APP_DISABLE_CRASH_REPORTS=OFF \
           $DEFINE
 
@@ -207,7 +207,7 @@ jobs:
         run: |
           cd out/Debug
           mkdir artifact
-          mv {Telegram,Updater} artifact/
+          mv Telegram artifact/
       - uses: actions/upload-artifact@v7
         if: env.UPLOAD_ARTIFACT == 'true'
         name: Upload artifact.
