@@ -1924,20 +1924,6 @@ void SessionController::init() {
 		handleDrawToReplyRequest(std::move(request));
 	}, lifetime());
 	setupShortcuts();
-	setupScreenshotProtection();
-}
-
-void SessionController::setupScreenshotProtection() {
-	Core::App().screenshotProtection().addAmbientReason(
-		widget(),
-		activeChatValue(
-	) | rpl::map([](Dialogs::Key key) {
-		const auto peer = key.peer();
-		return peer
-			? (Data::AllowsForwardingValue(peer)
-				| rpl::map(!rpl::mappers::_1))
-			: (rpl::single(false) | rpl::type_erased);
-	}) | rpl::flatten_latest(), lifetime());
 }
 
 void SessionController::setupShortcuts() {

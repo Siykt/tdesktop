@@ -23,15 +23,6 @@ void ScreenshotProtection::addContentReason(
 	addReason(window, std::move(active), lifetime);
 }
 
-void ScreenshotProtection::addAmbientReason(
-		not_null<QWidget*> window,
-		rpl::producer<bool> active,
-		rpl::lifetime &lifetime) {
-	if (Platform::AmbientScreenshotProtectionSupported()) {
-		addReason(window, std::move(active), lifetime);
-	}
-}
-
 void ScreenshotProtection::addReason(
 		not_null<QWidget*> window,
 		rpl::producer<bool> active,

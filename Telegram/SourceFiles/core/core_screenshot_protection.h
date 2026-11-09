@@ -26,12 +26,6 @@ public:
 		rpl::producer<bool> active,
 		rpl::lifetime &lifetime);
 
-	// Only context around the window is protected, not the window content.
-	void addAmbientReason(
-		not_null<QWidget*> window,
-		rpl::producer<bool> active,
-		rpl::lifetime &lifetime);
-
 private:
 	void addReason(
 		not_null<QWidget*> window,
