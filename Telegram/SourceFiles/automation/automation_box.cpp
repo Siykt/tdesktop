@@ -80,9 +80,9 @@ constexpr auto kRefreshInterval = crl::time(1000);
 		lt_state,
 		result.value(u"state"_q).toString(),
 		lt_created,
-		result.value(u"created"_q).toInt(),
+		QString::number(result.value(u"created"_q).toInt()),
 		lt_total,
-		result.value(u"total"_q).toInt());
+		QString::number(result.value(u"total"_q).toInt()));
 	const auto bots = result.value(u"bots"_q).toArray();
 	for (const auto &value : bots) {
 		const auto object = value.toObject();
@@ -113,11 +113,11 @@ constexpr auto kRefreshInterval = crl::time(1000);
 	auto text = tr::lng_automation_webhook_state(
 		tr::now,
 		lt_queued,
-		status.value(u"queued"_q).toInt(),
+		QString::number(status.value(u"queued"_q).toInt()),
 		lt_sent,
-		status.value(u"sent"_q).toInt(),
+		QString::number(status.value(u"sent"_q).toInt()),
 		lt_failed,
-		status.value(u"failed"_q).toInt());
+		QString::number(status.value(u"failed"_q).toInt()));
 	const auto error = status.value(u"last_error"_q).toString();
 	if (!error.isEmpty()) {
 		text += u"\n"_q + error;
@@ -325,12 +325,12 @@ void WebhookBox(
 				? u"✓ "_q
 				: u"   "_q) + title;
 		};
-		messageEvent->setText(text(
+		messageEvent->setText(rpl::single(text(
 			u"message"_q,
-			tr::lng_automation_event_message(tr::now)));
-		joinEvent->setText(text(
+			tr::lng_automation_event_message(tr::now))));
+		joinEvent->setText(rpl::single(text(
 			u"join_request"_q,
-			tr::lng_automation_event_join_request(tr::now)));
+			tr::lng_automation_event_join_request(tr::now))));
 	};
 	const auto toggleEvent = [=](const QString &kind) {
 		auto &events = options->webhook.events;

@@ -67,7 +67,6 @@ private:
 	mutable QProcess _process;
 	int _port = 0;
 	QString _error;
-
 };
 
 McpStatus Runner::status() const {
@@ -113,7 +112,10 @@ void Runner::start() {
 				).arg(NodeExecutable(options));
 		}
 	});
-	QObject::connect(&_process, &QProcess::finished, [=](
+	QObject::connect(&_process, QOverload<
+		int,
+		QProcess::ExitStatus
+	>::of(&QProcess::finished), [=](
 			int code,
 			QProcess::ExitStatus) {
 		if (code != 0) {

@@ -31,8 +31,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtNetwork/QNetworkReply>
 #include <QtNetwork/QNetworkRequest>
 
-#include <chrono>
-
 #include <deque>
 
 namespace Automation {
@@ -83,7 +81,6 @@ private:
 	void record(QJsonObject event);
 	void deliver(const QJsonObject &event);
 	void pump();
-	[[nodiscard]] QJsonObject post(const QJsonObject &body);
 	void finished(QNetworkReply *reply, int attempt);
 
 	base::weak_ptr<Main::Session> _session;
@@ -227,53 +224,33 @@ void Service::pump() {
 	if (!options.webhook.enabled || options.webhook.url.isEmpty()) {
 		return;
 	}
-	const auto request = post(_queue.front().body);
-	if (request.isEmpty()) {
-		return;
-	}
-	_sending = true;
-	if (!_network) {
-		_network = std::make_unique<QNetworkAccessManager>();
-	}
-	const auto body = request.value(u"body"_q).toUtf8();
-	auto networkRequest = QNetworkRequest(QUrl(request.value(u"url"_q)));
-	networkRequest.setHeader(
+	const auto payload = QJsonDocument(
+		_queue.front().body).toJson(QJsonDocument::Compact);
+	auto request = QNetworkRequest(QUrl(options.webhook.url));
+	request.setHeader(
 		QNetworkRequest::ContentTypeHeader,
 		u"application/json"_q);
-	const auto kind = request.value(u"kind"_q).toUtf8();
-	networkRequest.setRawHeader(kKindHeader, kind);
-	if (const auto signature = request.value(u"signature"_q).toByteArray();
-		!signature.isEmpty()) {
-		networkRequest.setRawHeader(kSignHeader, "sha256=" + signature);
-	}
-	networkRequest.setTransferTimeout(
-		std::chrono::milliseconds(kRequestTimeout));
-
-	const auto attempt = _queue.front().attempt;
-	const auto reply = _network->post(networkRequest, body);
-	QObject::connect(reply, &QNetworkReply::finished, [=] {
-		finished(reply, attempt);
-	});
-}
-
-QJsonObject Service::post(const QJsonObject &body) {
-	const auto options = ReadOptions();
-	if (!options.webhook.enabled || options.webhook.url.isEmpty()) {
-		return {};
-	}
-	const auto payload = QJsonDocument(body).toJson(QJsonDocument::Compact);
-	auto result = QJsonObject();
-	result.insert(u"url"_q, options.webhook.url);
-	result.insert(u"body"_q, QString::fromUtf8(payload));
-	result.insert(u"kind"_q, body.value(u"kind"_q).toString());
+	request.setRawHeader(
+		kKindHeader,
+		_queue.front().body.value(u"kind"_q).toString().toUtf8());
 	if (!options.webhook.secret.isEmpty()) {
 		const auto signature = QMessageAuthenticationCode::hash(
 			payload,
 			options.webhook.secret.toUtf8(),
-			QCryptographicHash::Sha256);
-		result.insert(u"signature"_q, signature.toHex());
+			QCryptographicHash::Sha256).toHex();
+		request.setRawHeader(kSignHeader, "sha256=" + signature);
 	}
-	return result;
+	request.setTransferTimeout(kRequestTimeout);
+
+	_sending = true;
+	if (!_network) {
+		_network = std::make_unique<QNetworkAccessManager>();
+	}
+	const auto attempt = _queue.front().attempt;
+	const auto reply = _network->post(request, payload);
+	QObject::connect(reply, &QNetworkReply::finished, [=] {
+		finished(reply, attempt);
+	});
 }
 
 void Service::finished(QNetworkReply *reply, int attempt) {

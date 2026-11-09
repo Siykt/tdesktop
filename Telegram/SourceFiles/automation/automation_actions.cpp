@@ -131,7 +131,7 @@ void ChatInfo(
 		result.insert(u"megagroup"_q, channel->isMegagroup());
 		result.insert(
 			u"default_restrictions"_q,
-			int(channel->defaultRestrictionsValue().value()));
+			int(channel->defaultRestrictions().value()));
 	} else if (const auto chat = peer->asChat()) {
 		result.insert(u"admin"_q, chat->hasAdminRights());
 		result.insert(u"members"_q, chat->count);
@@ -235,7 +235,7 @@ void Restrict(
 	session->api().request(MTPmessages_DeleteChatUser(
 		MTP_flags(revoke ? Flag::f_revoke_history : Flag(0)),
 		chat->inputChat(),
-		target->input()
+		target->asUser()->inputUser()
 	)).done([=](const MTPUpdates &result) {
 		if (const auto strong = weak.get()) {
 			strong->api().applyUpdates(result);
@@ -257,9 +257,9 @@ void RestrictAll(
 	}
 	auto current = ChatRestrictions();
 	if (const auto channel = peer->asChannel()) {
-		current = channel->defaultRestrictionsValue();
+		current = channel->defaultRestrictions();
 	} else if (const auto chat = peer->asChat()) {
-		current = chat->defaultRestrictionsValue();
+		current = chat->defaultRestrictions();
 	} else {
 		done(ErrorResult(u"not a group"_q));
 		return;
@@ -396,7 +396,8 @@ void JoinRequests(
 					PeerIdToString(peerFromUser(
 						UserId(importer.vuser_id().v))));
 				object.insert(u"date"_q, int(importer.vdate().v));
-				const auto about = importer.vabout().value_or_empty();
+				const auto about = qs(
+					importer.vabout().value_or_empty());
 				if (!about.isEmpty()) {
 					object.insert(u"about"_q, about);
 				}
@@ -432,7 +433,7 @@ void AnswerJoinRequest(
 	session->api().request(MTPmessages_HideChatJoinRequest(
 		MTP_flags(approve ? Flag::f_approved : Flag(0)),
 		peer->input(),
-		target->input()
+		target->asUser()->inputUser()
 	)).done([=](const MTPUpdates &result) {
 		if (const auto strong = weak.get()) {
 			strong->api().applyUpdates(result);
