@@ -7,6 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "core/application.h"
 
+#include "automation/automation_events.h"
+#include "automation/automation_mcp.h"
+
 #include "data/data_abstract_structure.h"
 #include "data/data_channel.h"
 #include "data/data_forum.h"
@@ -543,6 +546,8 @@ void Application::showOpenGLCrashNotification() {
 
 void Application::startDomain() {
 	const auto state = _domain->start(QByteArray());
+	Automation::StartService();
+	Automation::StartMcpIfEnabled();
 	if (state != Storage::StartResult::IncorrectPasscodeLegacy) {
 		// In case of non-legacy passcoded app all global settings are ready.
 		startSettingsAndBackground();

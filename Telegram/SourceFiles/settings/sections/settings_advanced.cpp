@@ -11,6 +11,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "api/api_global_privacy.h"
 #include "automation/automation_box.h"
+#include "automation/automation_mcp.h"
 #include "apiwrap.h"
 #include "base/call_delayed.h"
 #include "base/platform/base_platform_custom_app_icon.h"
@@ -22,6 +23,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "boxes/download_path_box.h"
 #include "core/application.h"
 #include "core/core_settings.h"
+#include "core/external_control.h"
 #include "core/file_utilities.h"
 #include "core/launcher.h"
 #include "core/update_channel.h"
@@ -1344,13 +1346,55 @@ void BuildAutomationSection(SectionBuilder &builder) {
 	builder.addSkip();
 
 	builder.addButton({
-		.id = u"advanced/automation"_q,
-		.title = rpl::single(u"自动化工具"_q),
+		.id = u"advanced/automation/local"_q,
+		.title = tr::lng_automation_local(),
+		.icon = { &st::menuIconLock },
+		.onClick = [=] {
+			if (Core::AutomationEnabled()) {
+				Core::DisableAutomation();
+				controller->window().showToast(
+					tr::lng_automation_disabled_toast(tr::now));
+			} else {
+				Core::RequestEnableAutomation();
+			}
+		},
+		.keywords = { u"automation"_q, u"socket"_q },
+	});
+	builder.addButton({
+		.id = u"advanced/automation/webhook"_q,
+		.title = tr::lng_automation_webhook(),
+		.icon = { &st::menuIconShare },
+		.onClick = [=] {
+			controller->show(Box(Automation::WebhookBox, controller));
+		},
+		.keywords = { u"webhook"_q, u"event"_q },
+	});
+	builder.addButton({
+		.id = u"advanced/automation/mcp"_q,
+		.title = tr::lng_automation_mcp(),
+		.icon = { &st::menuIconBot },
+		.onClick = [=] {
+			const auto status = Automation::CurrentMcpStatus();
+			if (status.running) {
+				Automation::StopMcp();
+				controller->window().showToast(
+					tr::lng_automation_mcp_stopped(tr::now));
+			} else {
+				Automation::StartMcp();
+				controller->window().showToast(
+					tr::lng_automation_mcp_started(tr::now));
+			}
+		},
+		.keywords = { u"mcp"_q, u"llm"_q, u"agent"_q },
+	});
+	builder.addButton({
+		.id = u"advanced/automation/tools"_q,
+		.title = tr::lng_automation_title(),
 		.icon = { &st::menuIconBot },
 		.onClick = [=] {
 			controller->show(Box(Automation::AutomationBox, controller));
 		},
-		.keywords = { u"automation"_q, u"mcp"_q, u"bot"_q },
+		.keywords = { u"bot"_q, u"batch"_q, u"session"_q },
 	});
 }
 

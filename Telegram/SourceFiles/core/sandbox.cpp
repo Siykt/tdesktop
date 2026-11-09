@@ -623,11 +623,18 @@ void Sandbox::readClients() {
 					if (hasOpen) {
 						continue;
 					}
-					const auto payload = HandleExternalControl(cmd.mid(5));
-					const auto response = QByteArray("DATA:")
-						+ payload.toBase64()
-						+ ';';
-					socket->write(response);
+					const auto target = QPointer<QLocalSocket>(socket);
+					HandleExternalControlAsync(cmd.mid(5), [=](
+							QByteArray payload) {
+						if (target
+							&& target->state()
+								== QLocalSocket::ConnectedState) {
+							target->write(
+								QByteArray("DATA:")
+								+ payload.toBase64()
+								+ ';');
+						}
+					});
 				} else {
 					LOG(("Sandbox Error: unknown command %1 passed in local socket").arg(cmd));
 				}

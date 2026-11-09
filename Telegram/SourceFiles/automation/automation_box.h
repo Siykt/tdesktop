@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #pragma once
 
+#include "base/basic_types.h"
+
 namespace Ui {
 class GenericBox;
 } // namespace Ui
@@ -18,6 +20,10 @@ class SessionController;
 namespace Automation {
 
 void AutomationBox(
+	not_null<Ui::GenericBox*> box,
+	not_null<Window::SessionController*> controller);
+
+void WebhookBox(
 	not_null<Ui::GenericBox*> box,
 	not_null<Window::SessionController*> controller);
 

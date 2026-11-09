@@ -8,8 +8,13 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "automation/automation_box.h"
 
 #include "automation/automation_api.h"
+#include "automation/automation_config.h"
+#include "automation/automation_events.h"
+#include "automation/automation_mcp.h"
+#include "automation/automation_result.h"
 #include "base/timer.h"
 #include "core/external_control.h"
+#include "lang/lang_keys.h"
 #include "ui/layers/generic_box.h"
 #include "ui/vertical_list.h"
 #include "ui/widgets/buttons.h"
@@ -17,7 +22,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/widgets/labels.h"
 #include "ui/wrap/vertical_layout.h"
 #include "window/window_session_controller.h"
-#include "styles/style_boxes.h"
 #include "styles/style_layers.h"
 #include "styles/style_widgets.h"
 
@@ -27,69 +31,40 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtGui/QClipboard>
 #include <QtGui/QGuiApplication>
 
+#include <algorithm>
+
 namespace Automation {
 namespace {
 
 constexpr auto kRefreshInterval = crl::time(1000);
-constexpr auto kBridgeCommand = "node <repo>/tools/tdesktop-mcp/index.js";
 
-[[nodiscard]] QJsonObject SendRequest(const QString &method) {
-	auto request = QJsonObject();
-	request.insert(u"method"_q, method);
-	return QJsonDocument::fromJson(HandleRequest(request)).object();
-}
-
-[[nodiscard]] QJsonObject SendRequest(
+[[nodiscard]] QJsonObject SyncRequest(
 		const QString &method,
-		QJsonObject params) {
+		QJsonObject params = QJsonObject()) {
 	auto request = QJsonObject();
 	request.insert(u"method"_q, method);
 	request.insert(u"params"_q, params);
 	return QJsonDocument::fromJson(HandleRequest(request)).object();
 }
 
-[[nodiscard]] QString StatusText() {
-	const auto response = SendRequest(u"botsStatus"_q);
-	const auto result = response.value(u"result"_q).toObject();
-	auto text = u"状态: "_q
-		+ result.value(u"state"_q).toString()
-		+ u"，已创建 "_q
-		+ QString::number(result.value(u"created"_q).toInt())
-		+ u"/"_q
-		+ QString::number(result.value(u"total"_q).toInt());
-	const auto bots = result.value(u"bots"_q).toArray();
-	for (auto i = 0; i != int(bots.size()); ++i) {
-		const auto object = bots.at(i).toObject();
-		text += u"\n@"_q
-			+ object.value(u"username"_q).toString()
-			+ u"  "_q
-			+ object.value(u"token"_q).toString();
-	}
-	const auto error = result.value(u"error"_q).toString();
-	if (!error.isEmpty()) {
-		text += u"\n错误: "_q + error;
-	}
-	return text;
-}
-
 [[nodiscard]] not_null<Ui::InputField*> AddField(
 		not_null<Ui::VerticalLayout*> container,
-		const QString &placeholder,
+		rpl::producer<QString> placeholder,
 		const QString &value) {
 	return container->add(object_ptr<Ui::InputField>(
 		container,
 		st::defaultInputField,
-		rpl::single(placeholder),
+		std::move(placeholder),
 		value));
 }
 
 [[nodiscard]] not_null<Ui::RoundButton*> AddAction(
 		not_null<Ui::VerticalLayout*> container,
-		const QString &text) {
+		rpl::producer<QString> text) {
 	const auto button = container->add(
 		object_ptr<Ui::RoundButton>(
 			container,
-			rpl::single(text),
+			std::move(text),
 			st::defaultLightButton),
 		st::boxRowPadding,
 		style::al_justify);
@@ -97,10 +72,63 @@ constexpr auto kBridgeCommand = "node <repo>/tools/tdesktop-mcp/index.js";
 	return button;
 }
 
-[[nodiscard]] QString AutomationStateText() {
-	return Core::AutomationEnabled()
-		? u"本地自动化: 已启用"_q
-		: u"本地自动化: 未启用（MCP 代理和批量创建都需要先启用）"_q;
+[[nodiscard]] QString BotsText() {
+	const auto response = SyncRequest(u"botsStatus"_q);
+	const auto result = response.value(u"result"_q).toObject();
+	auto text = tr::lng_automation_bots_state(
+		tr::now,
+		lt_state,
+		result.value(u"state"_q).toString(),
+		lt_created,
+		result.value(u"created"_q).toInt(),
+		lt_total,
+		result.value(u"total"_q).toInt());
+	const auto bots = result.value(u"bots"_q).toArray();
+	for (const auto &value : bots) {
+		const auto object = value.toObject();
+		text += u"\n@"_q
+			+ object.value(u"username"_q).toString()
+			+ u"  "_q
+			+ object.value(u"token"_q).toString();
+	}
+	const auto error = result.value(u"error"_q).toString();
+	if (!error.isEmpty()) {
+		text += u"\n"_q + error;
+	}
+	return text;
+}
+
+[[nodiscard]] QString McpText() {
+	const auto status = CurrentMcpStatus();
+	if (status.running) {
+		return tr::lng_automation_mcp_url(tr::now, lt_url, status.url);
+	}
+	return status.error.isEmpty()
+		? tr::lng_automation_mcp_off(tr::now)
+		: status.error;
+}
+
+[[nodiscard]] QString WebhookText() {
+	const auto status = WebhookStatus();
+	auto text = tr::lng_automation_webhook_state(
+		tr::now,
+		lt_queued,
+		status.value(u"queued"_q).toInt(),
+		lt_sent,
+		status.value(u"sent"_q).toInt(),
+		lt_failed,
+		status.value(u"failed"_q).toInt());
+	const auto error = status.value(u"last_error"_q).toString();
+	if (!error.isEmpty()) {
+		text += u"\n"_q + error;
+	}
+	return text;
+}
+
+[[nodiscard]] bool HasEventKind(
+		const std::vector<QString> &events,
+		const QString &kind) {
+	return std::find(events.begin(), events.end(), kind) != events.end();
 }
 
 } // namespace
@@ -108,106 +136,247 @@ constexpr auto kBridgeCommand = "node <repo>/tools/tdesktop-mcp/index.js";
 void AutomationBox(
 		not_null<Ui::GenericBox*> box,
 		not_null<Window::SessionController*> controller) {
-	box->setTitle(rpl::single(u"自动化工具"_q));
+	box->setTitle(tr::lng_automation_title());
 	box->setWidth(st::boxWideWidth);
 
 	const auto container = box->verticalLayout();
 
 	Ui::AddSkip(container);
-	Ui::AddSubsectionTitle(container, rpl::single(u"本地自动化"_q));
-	const auto status = container->add(object_ptr<Ui::FlatLabel>(
+	Ui::AddSubsectionTitle(container, tr::lng_automation_local());
+	const auto state = container->add(object_ptr<Ui::FlatLabel>(
 		container,
-		rpl::single(AutomationStateText()),
+		rpl::single(QString()),
 		st::boxLabel));
-	const auto enable = AddAction(container, u"启用本地自动化"_q);
-	enable->setClickedCallback([=] {
-		Core::RequestEnableAutomation();
+	const auto toggle = AddAction(container, tr::lng_automation_local());
+	toggle->setClickedCallback([=] {
+		if (Core::AutomationEnabled()) {
+			Core::DisableAutomation();
+			controller->showToast(
+				tr::lng_automation_disabled_toast(tr::now));
+		} else {
+			Core::RequestEnableAutomation();
+		}
 	});
 	Ui::AddSkip(container);
 
-	Ui::AddSubsectionTitle(container, rpl::single(u"批量创建 Bot"_q));
-	const auto count = AddField(container, u"数量"_q, u"1"_q);
-	const auto name = AddField(container, u"名称前缀"_q, u"My Bot"_q);
-	const auto username = AddField(container, u"用户名前缀"_q, u"my_bot"_q);
-	const auto start = AddAction(container, u"开始创建"_q);
-	const auto stop = AddAction(container, u"停止"_q);
+	Ui::AddSubsectionTitle(container, tr::lng_automation_bots());
+	const auto count = AddField(
+		container,
+		tr::lng_automation_bots_count(),
+		u"1"_q);
+	const auto name = AddField(
+		container,
+		tr::lng_automation_bots_name(),
+		u"My Bot"_q);
+	const auto username = AddField(
+		container,
+		tr::lng_automation_bots_username(),
+		u"my_bot"_q);
+	const auto start = AddAction(container, tr::lng_automation_bots_start());
+	const auto stop = AddAction(container, tr::lng_automation_bots_stop());
 	const auto progress = container->add(object_ptr<Ui::FlatLabel>(
 		container,
-		rpl::single(StatusText()),
+		rpl::single(QString()),
 		st::boxLabel));
-	Ui::AddSkip(container);
-
 	start->setClickedCallback([=] {
 		auto params = QJsonObject();
 		params.insert(u"count"_q, count->getLastText().toInt());
 		params.insert(u"name"_q, name->getLastText());
 		params.insert(u"username"_q, username->getLastText());
-		const auto response = SendRequest(u"createBots"_q, std::move(params));
-		if (!response.value(u"ok"_q).toBool()) {
-			progress->setText(response.value(u"error"_q).toString());
-		}
+		const auto response = SyncRequest(u"createBots"_q, std::move(params));
+		progress->setText(response.value(u"ok"_q).toBool()
+			? BotsText()
+			: response.value(u"error"_q).toString());
 	});
 	stop->setClickedCallback([=] {
-		const auto response = SendRequest(u"botsStop"_q);
-		if (!response.value(u"ok"_q).toBool()) {
-			progress->setText(response.value(u"error"_q).toString());
-		}
+		const auto response = SyncRequest(u"botsStop"_q);
+		progress->setText(response.value(u"ok"_q).toBool()
+			? BotsText()
+			: response.value(u"error"_q).toString());
 	});
+	Ui::AddSkip(container);
 
-	Ui::AddSubsectionTitle(container, rpl::single(u"导出会话"_q));
+	Ui::AddSubsectionTitle(container, tr::lng_automation_export());
+	const auto about = container->add(object_ptr<Ui::FlatLabel>(
+		container,
+		tr::lng_automation_export_about(),
+		st::boxLabel));
+	about->setSelectable(true);
 	const auto exported = container->add(object_ptr<Ui::InputField>(
 		container,
 		st::defaultInputField,
 		Ui::InputField::Mode::MultiLine,
-		rpl::single(u"导出后可直接交给 Telethon / gramjs 接管该账号"_q),
+		rpl::single(QString()),
 		QString()));
-	const auto exportButton = AddAction(container, u"导出 Session String"_q);
+	const auto exportButton = AddAction(
+		container,
+		tr::lng_automation_export_action());
 	exportButton->setClickedCallback([=] {
-		const auto response = SendRequest(u"exportSession"_q);
+		const auto response = SyncRequest(u"exportSession"_q);
 		const auto result = response.value(u"result"_q).toObject();
 		if (!response.value(u"ok"_q).toBool() || result.isEmpty()) {
 			exported->setText(response.value(u"error"_q).toString());
 			return;
 		}
 		const auto telethon = result.value(u"telethon_session"_q).toString();
-		const auto gramjs = result.value(u"gramjs_session"_q).toString();
 		auto text = u"Telethon: "_q + telethon;
-		text += u"\nGramJS: "_q + gramjs;
-		text += u"\nDC: "_q
+		text += u"\nGramJS: "_q
+			+ result.value(u"gramjs_session"_q).toString();
+		text += u"\nDC "_q
 			+ QString::number(result.value(u"dc_id"_q).toInt())
-			+ u"  "_q
+			+ u" "_q
 			+ result.value(u"server_address"_q).toString()
 			+ u":"_q
 			+ QString::number(result.value(u"port"_q).toInt());
 		exported->setText(text);
 		QGuiApplication::clipboard()->setText(telethon);
-		controller->showToast(u"Session String 已复制到剪贴板"_q);
+		controller->showToast(
+			tr::lng_automation_export_copied(tr::now));
 	});
 	Ui::AddSkip(container);
 
-	Ui::AddSubsectionTitle(container, rpl::single(u"MCP 代理"_q));
+	Ui::AddSubsectionTitle(container, tr::lng_automation_mcp());
 	const auto mcp = container->add(object_ptr<Ui::FlatLabel>(
 		container,
-		rpl::single(
-			u"外部 LLM 通过 MCP(stdio) 连接本应用，可以列出会话、"
-			u"读取历史、发送消息、批量创建 Bot 和导出会话。\n启动命令: "_q
-				+ QString::fromUtf8(kBridgeCommand)),
+		rpl::single(QString()),
 		st::boxLabel));
 	mcp->setSelectable(true);
-	const auto copyBridge = AddAction(container, u"复制启动命令"_q);
-	copyBridge->setClickedCallback([=] {
-		QGuiApplication::clipboard()->setText(
-			QString::fromUtf8(kBridgeCommand));
-		controller->showToast(u"启动命令已复制到剪贴板"_q);
+	const auto startMcp = AddAction(container, tr::lng_automation_mcp_start());
+	const auto stopMcp = AddAction(container, tr::lng_automation_mcp_stop());
+	const auto config = AddAction(
+		container,
+		tr::lng_automation_mcp_copy());
+	startMcp->setClickedCallback([=] {
+		StartMcp();
+		mcp->setText(McpText());
+	});
+	stopMcp->setClickedCallback([=] {
+		StopMcp();
+		mcp->setText(McpText());
+	});
+	config->setClickedCallback([=] {
+		QGuiApplication::clipboard()->setText(McpClientConfig());
+		controller->showToast(
+			tr::lng_automation_client_config_copied(tr::now));
 	});
 
 	const auto refresh = box->lifetime().make_state<base::Timer>([=] {
-		status->setText(AutomationStateText());
-		progress->setText(StatusText());
+		state->setText(Core::AutomationEnabled()
+			? tr::lng_automation_local_on(tr::now)
+			: tr::lng_automation_local_off(tr::now));
+		progress->setText(BotsText());
+		mcp->setText(McpText());
 	});
 	refresh->callEach(kRefreshInterval);
 
-	box->addButton(rpl::single(u"关闭"_q), [=] {
+	box->addButton(tr::lng_automation_close(), [=] {
+		box->closeBox();
+	});
+}
+
+void WebhookBox(
+		not_null<Ui::GenericBox*> box,
+		not_null<Window::SessionController*> controller) {
+	box->setTitle(tr::lng_automation_webhook_box());
+	box->setWidth(st::boxWideWidth);
+
+	const auto container = box->verticalLayout();
+	const auto options = box->lifetime().make_state<Options>(ReadOptions());
+
+	Ui::AddSkip(container);
+	Ui::AddSubsectionTitle(container, tr::lng_automation_webhook());
+	const auto about = container->add(object_ptr<Ui::FlatLabel>(
+		container,
+		tr::lng_automation_webhook_about(),
+		st::boxLabel));
+	about->setSelectable(true);
+
+	const auto url = AddField(
+		container,
+		tr::lng_automation_webhook_url(),
+		options->webhook.url);
+	const auto secret = AddField(
+		container,
+		tr::lng_automation_webhook_secret(),
+		options->webhook.secret);
+
+	Ui::AddSubsectionTitle(container, tr::lng_automation_webhook_events());
+	const auto messageEvent = AddAction(
+		container,
+		tr::lng_automation_event_message());
+	const auto joinEvent = AddAction(
+		container,
+		tr::lng_automation_event_join_request());
+	const auto refreshEvents = [=] {
+		const auto text = [&](const QString &kind, const QString &title) {
+			return (HasEventKind(options->webhook.events, kind)
+				? u"✓ "_q
+				: u"   "_q) + title;
+		};
+		messageEvent->setText(text(
+			u"message"_q,
+			tr::lng_automation_event_message(tr::now)));
+		joinEvent->setText(text(
+			u"join_request"_q,
+			tr::lng_automation_event_join_request(tr::now)));
+	};
+	const auto toggleEvent = [=](const QString &kind) {
+		auto &events = options->webhook.events;
+		const auto i = std::find(events.begin(), events.end(), kind);
+		if (i != events.end()) {
+			events.erase(i);
+		} else {
+			events.push_back(kind);
+		}
+		refreshEvents();
+	};
+	messageEvent->setClickedCallback([=] {
+		toggleEvent(u"message"_q);
+	});
+	joinEvent->setClickedCallback([=] {
+		toggleEvent(u"join_request"_q);
+	});
+	refreshEvents();
+
+	const auto state = container->add(object_ptr<Ui::FlatLabel>(
+		container,
+		rpl::single(WebhookText()),
+		st::boxLabel));
+	state->setSelectable(true);
+
+	const auto save = AddAction(
+		container,
+		tr::lng_automation_webhook_save());
+	save->setClickedCallback([=] {
+		options->webhook.url = url->getLastText().trimmed();
+		options->webhook.secret = secret->getLastText();
+		options->webhook.enabled = !options->webhook.url.isEmpty();
+		WriteOptions(*options);
+		controller->showToast(
+			tr::lng_automation_webhook_saved(tr::now));
+		box->closeBox();
+	});
+	const auto test = AddAction(
+		container,
+		tr::lng_automation_webhook_test());
+	test->setClickedCallback([=] {
+		options->webhook.url = url->getLastText().trimmed();
+		options->webhook.secret = secret->getLastText();
+		options->webhook.enabled = !options->webhook.url.isEmpty();
+		WriteOptions(*options);
+		const auto result = SendTestWebhook();
+		controller->showToast(result.value(u"ok"_q).toBool()
+			? tr::lng_automation_webhook_queued(tr::now)
+			: result.value(u"error"_q).toString());
+		state->setText(WebhookText());
+	});
+
+	const auto refresh = box->lifetime().make_state<base::Timer>([=] {
+		state->setText(WebhookText());
+	});
+	refresh->callEach(kRefreshInterval);
+
+	box->addButton(tr::lng_automation_close(), [=] {
 		box->closeBox();
 	});
 }

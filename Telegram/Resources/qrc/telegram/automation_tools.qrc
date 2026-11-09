@@ -1,0 +1,5 @@
+<RCC>
+  <qresource prefix="/automation">
+    <file alias="mcp-server.js">../../automation_tools/mcp-server.js</file>
+  </qresource>
+</RCC>

@@ -33,6 +33,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtCore/QJsonArray>
 #include <QtCore/QJsonDocument>
 #include <QtCore/QJsonObject>
+#include <QtCore/QJsonParseError>
 
 namespace Core {
 namespace {
@@ -547,6 +548,10 @@ bool AutomationEnabled() {
 	return Core::App().settings().readPref<bool>(kAutomationKey, false);
 }
 
+void DisableAutomation() {
+	Core::App().settings().writePref<bool>(kAutomationKey, false);
+}
+
 void RequestEnableAutomation() {
 	const auto window = Core::App().activePrimaryWindow();
 	if (!window) {
@@ -589,6 +594,36 @@ void RequestEnableAutomation() {
 	show->show(Box(first));
 }
 
+void HandleExternalControlAsync(
+		const QString &command,
+		Fn<void(QByteArray)> done) {
+	if (!IsAppLaunched()) {
+		done(Error(u"application is not launched"_q));
+		return;
+	} else if (!AutomationEnabled()) {
+		RequestEnableAutomation();
+		done(Error(u"local automation is disabled — confirm in the "
+			u"Telegram window to enable"_q));
+		return;
+	} else if (!command.startsWith(u"tg:"_q)) {
+		done(HandleExternalControl(command));
+		return;
+	}
+	const auto payload = QByteArray::fromBase64(
+		command.mid(3).toLatin1(),
+		QByteArray::Base64UrlEncoding);
+	auto error = QJsonParseError();
+	const auto document = QJsonDocument::fromJson(payload, &error);
+	if (error.error != QJsonParseError::NoError || !document.isObject()) {
+		done(Error(u"invalid request payload"_q));
+		return;
+	}
+	Automation::HandleRequestAsync(document.object(), [=](
+			QJsonObject response) {
+		done(Pack(response));
+	});
+}
+
 QByteArray HandleExternalControl(const QString &command) {
 	if (!IsAppLaunched()) {
 		return Error(u"application is not launched"_q);
@@ -598,11 +633,6 @@ QByteArray HandleExternalControl(const QString &command) {
 			u"Telegram window to enable"_q);
 	} else if (command.startsWith(u"tg:"_q)) {
 		return Automation::HandleRequest(command.mid(3).toLatin1());
-	} else if (command == u"automation-off"_q) { // TEMP test helper.
-		Core::App().settings().writePref<bool>(kAutomationKey, false);
-		auto object = QJsonObject();
-		object.insert(u"ok"_q, true);
-		return Pack(object);
 	} else if (command == u"ping"_q) {
 		auto object = QJsonObject();
 		object.insert(u"ok"_q, true);

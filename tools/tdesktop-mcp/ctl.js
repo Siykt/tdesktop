@@ -2,8 +2,8 @@
 /*
  * ctl - a tiny command line client for the Telegram Desktop automation API.
  *
- * Same transport as index.js, but without MCP: handy for debugging the socket
- * and for driving the account from a shell script.
+ * Same transport as mcp-server.js, but without MCP: handy for debugging the
+ * socket and for driving the account from a shell script.
  *
  * Usage:
  *   node ctl.js --socket @name me
@@ -12,6 +12,9 @@
  *   node ctl.js send --peer @durov --text "hello"
  *   node ctl.js createBots --count 3 --name "My Bot" --username my_bot
  *   node ctl.js botsStatus
+ *   node ctl.js events --after 0
+ *   node ctl.js joinRequests --peer channel:123
+ *   node ctl.js restrictUser --peer channel:123 --user user:456 --ban true
  *   node ctl.js exportSession
  *   node ctl.js raw '{"method":"send","params":{"peer":"me","text":"x"}}'
  */

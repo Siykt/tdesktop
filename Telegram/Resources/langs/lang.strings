@@ -9187,3 +9187,47 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "lng_passcode_strength_advice_fine" = "This passcode is hard to guess.";
 
 // Keys finished
+
+"lng_automation_title" = "自动化工具";
+"lng_automation_local" = "本地自动化";
+"lng_automation_local_on" = "本地自动化：已启用";
+"lng_automation_local_off" = "本地自动化：未启用";
+"lng_automation_enable" = "启用";
+"lng_automation_disable" = "关闭";
+"lng_automation_enabled_toast" = "本地自动化已启用";
+"lng_automation_disabled_toast" = "本地自动化已关闭";
+"lng_automation_webhook" = "事件转发 Webhook";
+"lng_automation_webhook_box" = "事件转发设置";
+"lng_automation_webhook_about" = "把群里发生的事件推送给外部程序，由外部程序决定怎么处理。";
+"lng_automation_webhook_url" = "Webhook 地址";
+"lng_automation_webhook_secret" = "签名密钥（可选）";
+"lng_automation_webhook_events" = "转发哪些事件";
+"lng_automation_webhook_save" = "保存";
+"lng_automation_webhook_test" = "发送测试事件";
+"lng_automation_webhook_state" = "队列 {queued}，已送达 {sent}，失败 {failed}";
+"lng_automation_webhook_saved" = "事件转发设置已保存";
+"lng_automation_webhook_queued" = "测试事件已排队";
+"lng_automation_webhook_off" = "未配置";
+"lng_automation_mcp" = "MCP 服务";
+"lng_automation_mcp_start" = "启动 MCP 服务";
+"lng_automation_mcp_stop" = "停止 MCP 服务";
+"lng_automation_mcp_copy" = "复制客户端配置";
+"lng_automation_mcp_url" = "地址：{url}";
+"lng_automation_mcp_off" = "未运行";
+"lng_automation_mcp_started" = "MCP 服务已启动";
+"lng_automation_mcp_stopped" = "MCP 服务已停止";
+"lng_automation_client_config_copied" = "客户端配置已复制";
+"lng_automation_bots" = "批量创建 Bot";
+"lng_automation_bots_count" = "数量";
+"lng_automation_bots_name" = "名称前缀";
+"lng_automation_bots_username" = "用户名前缀";
+"lng_automation_bots_start" = "开始创建";
+"lng_automation_bots_stop" = "停止";
+"lng_automation_bots_state" = "状态：{state}，已创建 {created}/{total}";
+"lng_automation_export" = "导出会话";
+"lng_automation_export_about" = "导出后可以把账号授权交给外部自动化程序接管，请当作密钥保管。";
+"lng_automation_export_action" = "导出 Session String";
+"lng_automation_export_copied" = "Session String 已复制";
+"lng_automation_event_message" = "新消息";
+"lng_automation_event_join_request" = "入群申请";
+"lng_automation_close" = "关闭";

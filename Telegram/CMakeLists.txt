@@ -120,10 +120,21 @@ nice_target_sources(Telegram ${src_loc}
 PRIVATE
     ${style_files}
 
+    automation/automation_actions.cpp
+    automation/automation_actions.h
     automation/automation_api.cpp
     automation/automation_api.h
     automation/automation_box.cpp
     automation/automation_box.h
+    automation/automation_config.cpp
+    automation/automation_config.h
+    automation/automation_events.cpp
+    automation/automation_events.h
+    automation/automation_json.cpp
+    automation/automation_json.h
+    automation/automation_mcp.cpp
+    automation/automation_mcp.h
+    automation/automation_result.h
 
     api/api_attached_stickers.cpp
     api/api_attached_stickers.h
@@ -2402,6 +2413,7 @@ PRIVATE
     qrc/emoji_8.qrc
     qrc/emoji_preview.qrc
     qrc/telegram/animations.qrc
+    qrc/telegram/automation_tools.qrc
     qrc/telegram/export.qrc
     qrc/telegram/export_rich.qrc
     qrc/telegram/picker.qrc

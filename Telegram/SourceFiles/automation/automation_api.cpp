@@ -9,6 +9,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "api/api_common.h"
 #include "apiwrap.h"
+#include "automation/automation_actions.h"
+#include "automation/automation_config.h"
+#include "automation/automation_events.h"
+#include "automation/automation_json.h"
+#include "automation/automation_result.h"
 #include "base/timer.h"
 #include "base/weak_ptr.h"
 #include "core/application.h"
@@ -73,26 +78,6 @@ struct BotBatch {
 	return *result;
 }
 
-[[nodiscard]] QJsonObject ErrorResult(const QString &message) {
-	auto result = QJsonObject();
-	result.insert(u"ok"_q, false);
-	result.insert(u"error"_q, message);
-	return result;
-}
-
-[[nodiscard]] QJsonObject OkResult(const QJsonValue &value = QJsonValue()) {
-	auto result = QJsonObject();
-	result.insert(u"ok"_q, true);
-	if (!value.isNull() && !value.isUndefined()) {
-		result.insert(u"result"_q, value);
-	}
-	return result;
-}
-
-[[nodiscard]] QByteArray Pack(const QJsonObject &object) {
-	return QJsonDocument(object).toJson(QJsonDocument::Compact);
-}
-
 [[nodiscard]] Main::Session *ActiveSession() {
 	const auto &domain = Core::App().domain();
 	if (!domain.started()) {
@@ -100,105 +85,6 @@ struct BotBatch {
 	}
 	auto &account = domain.active();
 	return account.sessionExists() ? &account.session() : nullptr;
-}
-
-[[nodiscard]] QString PeerIdToString(PeerId id) {
-	const auto value = QString::number(
-		qulonglong(id.value & PeerId::kChatTypeMask));
-	return peerIsUser(id)
-		? (u"user:"_q + value)
-		: peerIsChannel(id)
-		? (u"channel:"_q + value)
-		: (u"chat:"_q + value);
-}
-
-[[nodiscard]] PeerId PeerIdFromString(const QString &text) {
-	const auto parts = text.split(':');
-	if (parts.size() != 2) {
-		return PeerId();
-	}
-	auto ok = false;
-	const auto value = parts[1].toULongLong(&ok);
-	if (!ok || !value) {
-		return PeerId();
-	}
-	if (parts[0] == u"user"_q) {
-		return peerFromUser(UserId(value));
-	} else if (parts[0] == u"channel"_q) {
-		return peerFromChannel(ChannelId(value));
-	} else if (parts[0] == u"chat"_q) {
-		return peerFromChat(ChatId(value));
-	}
-	return PeerId();
-}
-
-[[nodiscard]] QJsonObject PeerToJson(not_null<PeerData*> peer) {
-	auto result = QJsonObject();
-	result.insert(u"id"_q, PeerIdToString(peer->id));
-	result.insert(u"title"_q, peer->name());
-	if (const auto user = peer->asUser()) {
-		result.insert(u"type"_q, u"user"_q);
-		result.insert(u"bot"_q, user->isBot());
-		if (!user->username().isEmpty()) {
-			result.insert(u"username"_q, user->username());
-		}
-	} else if (const auto channel = peer->asChannel()) {
-		result.insert(
-			u"type"_q,
-			channel->isMegagroup() ? u"group"_q : u"channel"_q);
-		if (!channel->username().isEmpty()) {
-			result.insert(u"username"_q, channel->username());
-		}
-	} else {
-		result.insert(u"type"_q, u"group"_q);
-	}
-	return result;
-}
-
-[[nodiscard]] QJsonObject MessageToJson(not_null<HistoryItem*> item) {
-	auto result = QJsonObject();
-	result.insert(u"id"_q, qint64(item->id.bare));
-	result.insert(u"date"_q, int(item->date()));
-	result.insert(u"out"_q, item->out());
-	result.insert(u"from"_q, item->from()->name());
-	result.insert(u"text"_q, item->originalText().text);
-	return result;
-}
-
-[[nodiscard]] PeerData *FindPeer(
-		not_null<Main::Session*> session,
-		const QString &reference) {
-	if (reference.isEmpty()
-		|| reference == u"me"_q
-		|| reference == u"self"_q) {
-		return session->user();
-	} else if (const auto peerId = PeerIdFromString(reference)) {
-		return session->data().peerLoaded(peerId);
-	}
-	auto username = reference;
-	if (username.startsWith(QChar('@'))) {
-		username = username.mid(1);
-	}
-	if (const auto peer = session->data().peerByUsername(username)) {
-		return peer;
-	}
-	auto ok = false;
-	const auto value = reference.toULongLong(&ok);
-	if (ok && value) {
-		return session->data().peerLoaded(peerFromUser(UserId(value)));
-	}
-	return nullptr;
-}
-
-void SendToPeer(
-		not_null<Main::Session*> session,
-		not_null<PeerData*> peer,
-		const QString &text) {
-	auto action = Api::SendAction(session->data().history(peer));
-	action.clearDraft = false;
-	auto message = Api::MessageToSend(std::move(action));
-	message.textWithTags = TextWithTags{ text, TextWithTags::Tags() };
-	session->api().sendMessage(std::move(message));
 }
 
 void ResolveUsernameAndSend(
@@ -505,6 +391,9 @@ void HandleBotReply(const QString &text) {
 		bot.insert(u"username"_q, batch.currentUsername);
 		bot.insert(u"token"_q, match.captured(1));
 		batch.bots.push_back(bot);
+		auto stored = ReadBots();
+		stored.push_back(bot);
+		WriteBots(stored);
 		++batch.created;
 		batch.step = 0;
 		batch.usernameAttempt = 0;
@@ -590,6 +479,12 @@ void BeginBatch(not_null<PeerData*> botFather) {
 		bots.append(bot);
 	}
 	result.insert(u"bots"_q, bots);
+
+	auto stored = QJsonArray();
+	for (const auto &bot : ReadBots()) {
+		stored.append(bot);
+	}
+	result.insert(u"stored"_q, stored);
 	return OkResult(result);
 }
 
@@ -700,6 +595,19 @@ void BeginBatch(not_null<PeerData*> botFather) {
 		return StopBotBatch();
 	} else if (method == u"exportSession"_q) {
 		return ExportSession(session);
+	} else if (method == u"events"_q) {
+		auto result = QJsonObject();
+		result.insert(
+			u"events"_q,
+			TakeEvents(
+				params.value(u"after"_q).toInt(0),
+				params.value(u"limit"_q).toInt(100)));
+		result.insert(u"last"_q, LastEventId());
+		return OkResult(result);
+	} else if (method == u"webhookStatus"_q) {
+		return OkResult(WebhookStatus());
+	} else if (method == u"webhookTest"_q) {
+		return SendTestWebhook();
 	}
 	return ErrorResult(u"unknown method: "_q + method);
 }
@@ -720,6 +628,23 @@ QByteArray HandleRequest(const QByteArray &payload) {
 
 QByteArray HandleRequest(const QJsonObject &request) {
 	return Pack(Dispatch(request));
+}
+
+void HandleRequestAsync(
+		const QJsonObject &request,
+		Fn<void(QJsonObject)> done) {
+	const auto session = ActiveSession();
+	if (!session) {
+		done(ErrorResult(u"no active account"_q));
+		return;
+	}
+	const auto method = request.value(u"method"_q).toString();
+	const auto params = request.value(u"params"_q).toObject();
+	if (HandleAction(session, method, params, done)) {
+		return;
+	}
+	done(QJsonDocument::fromJson(
+		HandleRequest(request)).object());
 }
 
 } // namespace Automation
